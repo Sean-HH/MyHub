@@ -1,0 +1,77 @@
+kind: pipeline
+type: docker
+name: account-service
+
+workspace:
+  path: /drone/src
+
+steps:
+  - name: "maven打包"
+    pull: if-not-exists
+    image: maven:3-jdk-8
+    volumes:
+      - name: cache
+        path: /root/.m2
+    commands:
+      - mvn clean package -P ${env} -U
+  - name: "推送Jar文件"
+    image: appleboy/drone-scp
+    pull: if-not-exists
+    settings:
+      host:
+        from_secret: host_${env}
+      user:
+        from_secret: ssh_user
+      key:
+        from_secret: ssh_key
+      port: 17822
+      target: /opt/transfer_station/account-service/
+      source: ./target/account-service*.jar
+  - name: "项目发布"
+    image: appleboy/drone-ssh
+    settings:
+      host:
+        from_secret: host_${env}
+      user:
+        from_secret: ssh_user
+      key:
+        from_secret: ssh_key
+      port: 17822
+      script:
+        - /bin/sh /usr/script/deploy_account_service.sh
+
+  - name: "企业微信通知"
+    image: fifsky/drone-wechat-work
+    pull: if-not-exists
+    settings:
+      url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=3e47a1b2-1abd-4cce-b469-2de4a7f337b2
+      msgtype: markdown
+      content: |
+        {{if eq .Status "success" }}
+        #### 🎉 ${DRONE_REPO} 构建成功
+        > Git变更事项: [${DRONE_COMMIT_MESSAGE}](${DRONE_COMMIT_LINK})
+        > Git用户: ${DRONE_COMMIT_AUTHOR}
+        > Git分支: ${DRONE_COMMIT_BRANCH}
+        > 部署环境: ${env}
+        > [点击查看](${DRONE_BUILD_LINK})
+        {{else}}
+        #### ❌ ${DRONE_REPO} 构建失败
+        > Git变更事项: [${DRONE_COMMIT_MESSAGE}](${DRONE_COMMIT_LINK})
+        > Git用户: ${DRONE_COMMIT_AUTHOR}
+        > Git分支: ${DRONE_COMMIT_BRANCH}
+        > 部署环境:  ${env}
+        > 请立即修复!!!
+        > [点击查看](${DRONE_BUILD_LINK})
+        {{end}}
+    when:
+      status:
+      - failure
+      - success
+
+volumes:
+  - name: cache
+    host:
+      path: /var/lib/cache
+trigger:
+  event:
+    - custom
