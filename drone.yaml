@@ -44,7 +44,7 @@ steps:
     image: fifsky/drone-wechat-work
     pull: if-not-exists
     settings:
-      url: https://qyapi.weixin.qq.com/cgi-bin/webhook/send?key=3e47a1b2-1abd-4cce-b469-2de4a7f337b2
+      url: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
       msgtype: markdown
       content: |
         {{if eq .Status "success" }}
